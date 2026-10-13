@@ -39,6 +39,6 @@ def blocks_checkpoint(x, n, t):
 
 # Run forward pass, saving for backward
 with torch.autograd.graph.saved_tensors_hooks(pack_hook, unpack_hook):
-    y = blocks_checkpoint(x, n, t)
+    y = blocks_checkpoint(x, 8, 1)
 
 print(f"Total size of saved tensors in single TransformerBlock: {total_size_bytes / (1024**2):.2f} MiB")
