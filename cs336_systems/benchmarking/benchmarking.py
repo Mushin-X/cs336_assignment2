@@ -1,4 +1,5 @@
 import torch
+from contextlib import nullcontext
 from timeit import default_timer
 from cs336_basics.model import BasicsTransformerLM
 from cs336_basics.nn_utils import cross_entropy
@@ -49,9 +50,11 @@ optimizer = AdamW(model.parameters())
 def only_forward():
     model(inputs)
 
-def forward_and_backward():
-    out = model(inputs)
-    loss = cross_entropy(out, targets)
+def forward_and_backward(use_bf16=False):
+    context = torch.autocast(device_type="cuda", dtype=torch.bfloat16) if use_bf16 else nullcontext()
+    with context:
+        out = model(inputs)
+        loss = cross_entropy(out, targets)
 
     optimizer.zero_grad()
     loss.backward()
@@ -62,5 +65,6 @@ def forward_and_backward_and_optimizer():
 
 
 print(f"only_forward: {get_time(only_forward)}")
-print(f"forward_and_backward: {get_time(forward_and_backward)}")
+print(f"forward_and_backward (FP32): {get_time(forward_and_backward)}")
+print(f"forward_and_backward (BF16): {get_time(lambda: forward_and_backward(use_bf16=True))}")
 print(f"forward_and_backward_and_optimizer: {get_time(forward_and_backward_and_optimizer)}")

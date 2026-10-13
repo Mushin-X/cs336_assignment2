@@ -11,7 +11,7 @@ class ToyModel(nn.Module):
 
     def forward(self, x):
         print(f"fc1前: {x.dtype}")
-        x = self.fc1()
+        x = self.fc1(x)
         print(f"fc1后 | relu前: {x.dtype}")
         x = self.relu(x)
         print(f"relu后 | ln前: {x.dtype}")
