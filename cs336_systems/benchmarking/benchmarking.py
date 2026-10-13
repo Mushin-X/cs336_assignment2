@@ -44,7 +44,7 @@ targets = torch.randint(
     device=device
 )
 
-optimizer = AdamW(model.parameters)
+optimizer = AdamW(model.parameters())
 
 def only_forward():
     model(inputs)
