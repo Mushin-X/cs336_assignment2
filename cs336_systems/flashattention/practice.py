@@ -1,6 +1,7 @@
 import triton
 import triton.language as tl
 import torch
+from timeit import default_timer
 
 @triton.jit
 def cal_sum(
@@ -42,8 +43,8 @@ class SumFunc(torch.autograd.Function):
         ctx.save_for_backward(x)
         assert x.is_cuda, "x不在cuda设备上"
         assert x.is_contiguous(), "x张量不连续"
-        ctx.row_tile_size = 2
-        ctx.col_tile_size = 4
+        ctx.row_tile_size = 64
+        ctx.col_tile_size = 64
         ctx.input_shape = x.shape
         output = torch.empty(num_row, device=x.device)
 
@@ -57,15 +58,29 @@ class SumFunc(torch.autograd.Function):
         )
         return output
 
-x = torch.randn(
+x = torch.randint(
     low=0,
     high=10,
-    size=(4, 8),
+    size=(4096, 4096),
     device='cuda',
     dtype=torch.float32
 )
-sum1 = x.sum(dim=1)
-sum2 = SumFunc.apply(x)
 print(x)
-print(f"sum1 = {sum1}")
-print(f"sum2 = {sum2}")
+
+for _ in range(5):
+    x.sum(dim=1)
+    SumFunc.apply(x)
+
+torch.cuda.synchronize()
+start = default_timer()
+sum1 = x.sum(dim=1)
+torch.cuda.synchronize()
+end = default_timer()
+print(f"sum1 = {sum1}, time = {end - start}")
+
+torch.cuda.synchronize()
+start = default_timer()
+sum2 = SumFunc.apply(x)
+torch.cuda.synchronize()
+end = default_timer()
+print(f"sum2 = {sum2}, time = {end - start}")
