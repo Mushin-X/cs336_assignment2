@@ -17,7 +17,7 @@ def cal_sum(
         shape=(num_row, num_col),
         strides=(x_stride_row, x_stride_col),
         offsets=(row_tile_idx*row_tile_size, 0),
-        block_shape=(row_tile_size, num_col),
+        block_shape=(row_tile_size, col_tile_size),
         order=(1, 0)
     )
     output_block_ptr = tl.make_block_ptr(
@@ -31,7 +31,7 @@ def cal_sum(
     output = tl.zeros((row_tile_size,), dtype=tl.float32)
     for _ in range(tl.cdiv(num_col, col_tile_size)):
         row = tl.load(x_block_ptr, boundary_check=(0, 1), padding_option="zero")
-        output = tl.sum(row, axis=1)
+        output += tl.sum(row, axis=1)
         x_block_ptr = x_block_ptr.advance((0, col_tile_size))
     tl.store(output_block_ptr, output, boundary_check=(0,))
 
@@ -45,9 +45,9 @@ class SumFunc(torch.autograd.Function):
         ctx.row_tile_size = 2
         ctx.col_tile_size = 4
         ctx.input_shape = x.shape
-        output = torch.empty(num_col, device=x.device)
+        output = torch.empty(num_row, device=x.device)
 
-        cal_sum[(tl.cdiv(num_row, ctx.row_tile_size),)](
+        cal_sum[(triton.cdiv(num_row, ctx.row_tile_size),)](
             x_ptr=x,
             output_ptr=output,
             x_stride_row=num_col, x_stride_col=1,
@@ -57,13 +57,15 @@ class SumFunc(torch.autograd.Function):
         )
         return output
 
-x = torch.randint(
+x = torch.randn(
     low=0,
     high=10,
     size=(4, 8),
-    device='cuda'
+    device='cuda',
+    dtype=torch.float32
 )
 sum1 = x.sum(dim=1)
-sum2 = SumFunc(x)
-print(sum1)
-print(sum2)
+sum2 = SumFunc.apply(x)
+print(x)
+print(f"sum1 = {sum1}")
+print(f"sum2 = {sum2}")
