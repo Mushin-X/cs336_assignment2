@@ -1,7 +1,7 @@
 import torch
 from contextlib import nullcontext
 from timeit import default_timer
-from cs336_basics.model import CausalMultiHeadSelfAttention
+from cs336_basics.model import scaled_dot_product_attention
 
 def get_time(run):
     for _ in range(5):
@@ -21,20 +21,12 @@ def get_time(run):
 
 device = 'cuda'
 
-atten = CausalMultiHeadSelfAttention(
-    d_model=16,
-    num_heads=1
-)
-
-inputs = torch.randint(
-    low=0,
-    high=100,
-    size=(8, 256, 16),
-    device=device
-)
+q = torch.randn((8, 256, 16), device=device)
+k = torch.randn((8, 256, 16), device=device)
+v = torch.randn((8, 256, 16), device=device)
 
 def run_attention():
-    out = CausalMultiHeadSelfAttention(inputs)
+    out = scaled_dot_product_attention(q, k, v)
     return out
 
 print(f"time: {get_time(run_attention)}")
