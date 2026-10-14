@@ -61,35 +61,23 @@ def pack_hook(t):
     global total_size_bytes
     shape, dtype, grad_fn = t.shape, t.dtype, t.grad_fn
     total_size_bytes += t.numel() * t.element_size()
-    # print(f"Saving residual: {shape=}, {dtype=}, {grad_fn=}")
+    print(f"Saving residual: {shape=}, {dtype=}, {grad_fn=}")
     return t
 
 def unpack_hook(t):
     return t
     
-total_size_bytes = 0
-seq, d_model = 256, 32
-q = torch.randn((8, seq, d_model), device=device, requires_grad=True)
-k = torch.randn((8, seq, d_model), device=device, requires_grad=True)
-v = torch.randn((8, seq, d_model), device=device, requires_grad=True)
-with torch.autograd.graph.saved_tensors_hooks(pack_hook, unpack_hook):
-    y = run_attention()
-print(f"Total size of saved tensors in single TransformerBlock: {total_size_bytes / (1024**2):.2f} MiB")
-
-total_size_bytes = 0
-seq, d_model = 1024, 32
-q = torch.randn((8, seq, d_model), device=device, requires_grad=True)
-k = torch.randn((8, seq, d_model), device=device, requires_grad=True)
-v = torch.randn((8, seq, d_model), device=device, requires_grad=True)
-with torch.autograd.graph.saved_tensors_hooks(pack_hook, unpack_hook):
-    y = run_attention()
-print(f"Total size of saved tensors in single TransformerBlock: {total_size_bytes / (1024**2):.2f} MiB")
-
-total_size_bytes = 0
 seq, d_model = 4096, 32
 q = torch.randn((8, seq, d_model), device=device, requires_grad=True)
 k = torch.randn((8, seq, d_model), device=device, requires_grad=True)
 v = torch.randn((8, seq, d_model), device=device, requires_grad=True)
+total_size_bytes = 0
 with torch.autograd.graph.saved_tensors_hooks(pack_hook, unpack_hook):
     y = run_attention()
+print(f"Total size of saved tensors in single TransformerBlock: {total_size_bytes / (1024**2):.2f} MiB")
+
+compile_atten = torch.compile(run_attention)
+total_size_bytes = 0
+with torch.autograd.graph.saved_tensors_hooks(pack_hook, unpack_hook):
+    y = compile_atten()
 print(f"Total size of saved tensors in single TransformerBlock: {total_size_bytes / (1024**2):.2f} MiB")
