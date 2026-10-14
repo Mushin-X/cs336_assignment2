@@ -21,12 +21,24 @@ def get_time(run):
 
 device = 'cuda'
 
-q = torch.randn((8, 256, 16), device=device)
-k = torch.randn((8, 256, 16), device=device)
-v = torch.randn((8, 256, 16), device=device)
-
-def run_attention():
-    out = scaled_dot_product_attention(q, k, v)
+def run_attention(q_, k_, v_):
+    out = scaled_dot_product_attention(q_, k_, v_)
     return out
 
-print(f"time: {get_time(run_attention)}")
+seq, d_model = 256, 16
+q = torch.randn((8, seq, d_model), device=device)
+k = torch.randn((8, seq, d_model), device=device)
+v = torch.randn((8, seq, d_model), device=device)
+print(f"seq, d_model = 256, 16 time: {get_time(run_attention(q, k, v))}")
+
+seq, d_model = 1024, 16
+q = torch.randn((8, seq, d_model), device=device)
+k = torch.randn((8, seq, d_model), device=device)
+v = torch.randn((8, seq, d_model), device=device)
+print(f"seq, d_model = 1024, 16 time: {get_time(run_attention())}")
+
+seq, d_model = 4096, 16
+q = torch.randn((8, seq, d_model), device=device)
+k = torch.randn((8, seq, d_model), device=device)
+v = torch.randn((8, seq, d_model), device=device)
+print(f"seq, d_model = 4096, 16 time: {get_time(run_attention())}")
