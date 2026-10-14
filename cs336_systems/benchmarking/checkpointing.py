@@ -8,8 +8,8 @@ block = TransformerBlock(d_model=d_model, d_ff=d_ff, num_heads=num_heads,
     positional_encoder=RotaryEmbedding(dim=d_model // num_heads, context_length=context_length))
 
 # Fuse as much torch.compile will allow
-block = torch.compile(block, fullgraph=True)
-x = torch.randn((4, context_length, d_model), requires_grad=True)
+block = torch.compile(block, fullgraph=True).to('cuda')
+x = torch.randn((4, context_length, d_model), device='cuda', requires_grad=True)
 
 # Now log the number of bytes saved
 total_size_bytes = 0
@@ -33,12 +33,12 @@ def run(x, t):
 def blocks_checkpoint(x, n, t):
     if n % t != 0:
         raise ValueError("n必须为t的整数倍")
-    for _ in range(n / t):
-        x = checkpoint(run, x, use_reentrant=False)
+    for _ in range(n // t):
+        x = checkpoint(run, x, t, use_reentrant=False)
     return x    
 
 # Run forward pass, saving for backward
 with torch.autograd.graph.saved_tensors_hooks(pack_hook, unpack_hook):
-    y = blocks_checkpoint(x, 8, 1)
+    y = blocks_checkpoint(x, 8, 8)
 
 print(f"Total size of saved tensors in single TransformerBlock: {total_size_bytes / (1024**2):.2f} MiB")
