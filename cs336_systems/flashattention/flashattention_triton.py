@@ -59,34 +59,44 @@ def flash_fwd_kernel(
         strides=(stride_lq,),
         offsets=(query_tile_index * Q_TILE_SIZE,), 
         block_shape=(Q_TILE_SIZE,), 
-        order=(1, 0),
+        order=(0,),
     )
 
     q = tl.load(Q_block_ptr, boundary_check=(0, 1), padding_option="zero") #(q_tile_size, d)
-    o, l = 0, 0
+    o = tl.full(
+        (Q_TILE_SIZE, D),
+        0.0,
+        tl.float32
+    )
+    l = tl.full(
+        (Q_TILE_SIZE, 1),
+        0.0,
+        tl.float32
+    )
     m = tl.full(
         (Q_TILE_SIZE, 1), 
-        fill_value=-torch.inf,
-        dtype=q.dtype,
-        device=q.device
+        -float("inf"),
+        tl.float32
     )
-    for i in range(N_KEYS // K_TILE_SIZE):
+    for i in range(0, N_KEYS, K_TILE_SIZE):
         #(k_tile_size, d)
         k = tl.load(K_block_ptr, boundary_check=(0, 1), padding_option="zero")
         v = tl.load(V_block_ptr, boundary_check=(0, 1), padding_option="zero")
 
         s = tl.dot(q, tl.trans(k)) * scale #(q_tile_size, k_tile_size)
-        mx = tl.maximum(m, tl.max(s, dim=-1, keepdim=True).values) #(q_tile_size, 1)
+        mx = tl.maximum(m, tl.max(s, axis=-1, keep_dims=True)) #(q_tile_size, 1)
 
         p = tl.exp(s - mx) #(q_tile_size, k_tile_size)
-        l = tl.exp(m - mx) * l + p #(q_tile_size, 1)
-        o = tl.exp(m - mx) * o + p @ v #(q_tile_size, d)
+        l = tl.exp(m - mx) * l + tl.sum(p, axis=-1, keep_dims=True) #(q_tile_size, 1)
+        o = tl.exp(m - mx) * o + tl.dot(p, v) #(q_tile_size, d)
 
         K_block_ptr = K_block_ptr.advance((K_TILE_SIZE, 0))
         V_block_ptr = V_block_ptr.advance((K_TILE_SIZE, 0))
+        m=mx
 
-    tl.store(L_block_ptr, l.squeeze(-1), boundary_check=(0, 1))
-    tl.store(O_block_ptr, o, boundary_check=(0, 1))
+    tl.store(O_block_ptr, o / l, boundary_check=(0, 1))
+    l = tl.reshape((m + tl.log(l)), (Q_TILE_SIZE,))
+    tl.store(L_block_ptr, l, boundary_check=(0,))
 
 class FlashattentionTriton(torch.autograd.Function):
     @staticmethod
@@ -98,7 +108,7 @@ class FlashattentionTriton(torch.autograd.Function):
         O = torch.empty((batch_size, qrows_num, d), dtype=Q.dtype, device=Q.device)
         L = torch.empty((batch_size, qrows_num), dtype=Q.dtype, device=Q.device)
          
-        flash_fwd_kernel[(triton.cdiv(qrows_num / q_tile_size), batch_size)](
+        flash_fwd_kernel[(triton.cdiv(qrows_num, q_tile_size), batch_size)](
             Q_ptr=Q, K_ptr=K, V_ptr=V,
             O_ptr=O, L_ptr=L,
             stride_qb=qrows_num*d, stride_qq=d, stride_qd=1,
@@ -112,6 +122,7 @@ class FlashattentionTriton(torch.autograd.Function):
             Q_TILE_SIZE=q_tile_size,
             K_TILE_SIZE=k_tile_size,
         )
+        ctx.save_for_backward(L, Q, K, V, O)
         return O
 
     @staticmethod
