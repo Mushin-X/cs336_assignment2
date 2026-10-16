@@ -9,20 +9,8 @@ def get_flashattention_autograd_function_pytorch() -> type:
     return FlashattentionPytorch
 
 def get_flashattention_autograd_function_triton() -> type:
-    """
-    Returns a torch.autograd.Function subclass that implements FlashAttention2
-    using Triton kernels.
-    The expectation is that this class will implement the same operations
-    as the class you return in get_flashattention_autograd_function_pytorch(),
-    but it should do so by invoking custom Triton kernels in the forward
-    and backward passes.
-
-    Returns:
-        A class object (not an instance of the class)
-    """
-    # For example: return MyTritonFlashAttentionAutogradFunctionClass
-    raise NotImplementedError
-
+    from cs336_systems.flashattention.flashattention_triton import FlashattentionTriton
+    return FlashattentionTriton
 
 def get_ddp(module: torch.nn.Module) -> torch.nn.Module:
     """
