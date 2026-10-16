@@ -9,7 +9,7 @@ def get_flashattention_autograd_function_pytorch() -> type:
     return FlashattentionPytorch
 
 def get_flashattention_autograd_function_triton() -> type:
-    from cs336_systems.flashattention.flashattention_triton import FlashattentionTriton
+    from cs336_systems.flashattention.flashattention_triton_with_mask import FlashattentionTriton
     return FlashattentionTriton
 
 def get_ddp(module: torch.nn.Module) -> torch.nn.Module:
