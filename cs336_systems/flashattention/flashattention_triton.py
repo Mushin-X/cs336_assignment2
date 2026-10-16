@@ -63,8 +63,8 @@ def flash_fwd_kernel(
     )
 
     q = tl.load(Q_block_ptr, boundary_check=(0, 1), padding_option="zero") #(q_tile_size, d)
-    o, l = 0
-    m = torch.full(
+    o, l = 0, 0
+    m = tl.full(
         (Q_TILE_SIZE, 1), 
         fill_value=-torch.inf,
         dtype=q.dtype,
@@ -75,17 +75,17 @@ def flash_fwd_kernel(
         k = tl.load(K_block_ptr, boundary_check=(0, 1), padding_option="zero")
         v = tl.load(V_block_ptr, boundary_check=(0, 1), padding_option="zero")
 
-        s = (q @ k.transpose(-2, -1)) * scale #(q_tile_size, k_tile_size)
-        mx = torch.maximum(m, torch.max(s, dim=-1, keepdim=True).values) #(q_tile_size, 1)
+        s = tl.dot(q, tl.trans(k)) * scale #(q_tile_size, k_tile_size)
+        mx = tl.maximum(m, tl.max(s, dim=-1, keepdim=True).values) #(q_tile_size, 1)
 
-        p = torch.exp(s - mx) #(q_tile_size, k_tile_size)
-        l = torch.exp(m - mx) * l + p #(q_tile_size, 1)
-        o = torch.exp(m - mx) * o + p @ v #(q_tile_size, d)
+        p = tl.exp(s - mx) #(q_tile_size, k_tile_size)
+        l = tl.exp(m - mx) * l + p #(q_tile_size, 1)
+        o = tl.exp(m - mx) * o + p @ v #(q_tile_size, d)
 
         K_block_ptr = K_block_ptr.advance((K_TILE_SIZE, 0))
         V_block_ptr = V_block_ptr.advance((K_TILE_SIZE, 0))
 
-    tl.store(L_block_ptr, l, boundary_check=(0, 1))
+    tl.store(L_block_ptr, l.squeeze(-1), boundary_check=(0, 1))
     tl.store(O_block_ptr, o, boundary_check=(0, 1))
 
 class FlashattentionTriton(torch.autograd.Function):
