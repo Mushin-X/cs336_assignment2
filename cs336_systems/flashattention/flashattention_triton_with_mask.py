@@ -133,6 +133,7 @@ class FlashattentionTriton(torch.autograd.Function):
             IS_CAUSAL=is_causal
         )
         ctx.save_for_backward(L, Q, K, V, O)
+        ctx.is_causal = is_causal
         return O
 
     @staticmethod
