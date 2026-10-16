@@ -5,17 +5,8 @@ import torch
 
 
 def get_flashattention_autograd_function_pytorch() -> type:
-    """
-    Returns a torch.autograd.Function subclass that implements FlashAttention2.
-    The expectation is that this class will implement FlashAttention2
-    using only standard PyTorch operations (no Triton!).
-
-    Returns:
-        A class object (not an instance of the class)
-    """
-    # For example: return MyFlashAttnAutogradFunctionClass
-    raise NotImplementedError
-
+    from cs336_systems.flashattention.flashattention_pytorch import FlashattentionPytorch
+    return FlashattentionPytorch
 
 def get_flashattention_autograd_function_triton() -> type:
     """

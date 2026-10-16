@@ -13,13 +13,15 @@ def cal_sum(
     row_tile_size: tl.constexpr, col_tile_size: tl.constexpr #
 ):
     row_tile_idx = tl.program_id(0)
+
+    #注意：一个实例处理指定数量的整行，但实际处理时会将整行进一步分块，实例每次是处理其中一个块
     x_block_ptr = tl.make_block_ptr(
-        x_ptr,
-        shape=(num_row, num_col),
-        strides=(x_stride_row, x_stride_col),
-        offsets=(row_tile_idx*row_tile_size, 0),
-        block_shape=(row_tile_size, col_tile_size),
-        order=(1, 0)
+        x_ptr, #大窗口所在的物理地址
+        shape=(num_row, num_col), #该大窗口的形状
+        strides=(x_stride_row, x_stride_col), #(输入x每移动一行或一列，分别需要越过多少个元素)用来求得当前实例负责的窗口的物理地址
+        offsets=(row_tile_idx*row_tile_size, 0), #用来定位实例当前所处理的块的位置
+        block_shape=(row_tile_size, col_tile_size), #实例每次所处理的块的大小
+        order=(1, 0) #布局的优先级，这里的含义是整个矩阵的数据顺序是 Z 字型，若为（0，1）则就是 倒N 字型
     )
     output_block_ptr = tl.make_block_ptr(
         output_ptr,
